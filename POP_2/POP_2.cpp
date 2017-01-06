@@ -6,14 +6,42 @@
 
 #include "stdafx.h" //Header files
 
+struct Instruction //This struct help us when for example we need to convert line to instruction
+{
+	int r2;
+	int r1;
+	int Op;
+};
+
+struct Memory
+{
+	int reg[64];
+	int ins_counter;
+	int flag_register;
+};
+
 using namespace std;// No more std:: witch cout etc.
 //Declaration
 void mainMenuDisplay(void);
-
+Instruction lineToInstruction(uint16_t line);
+bool openFileIn(string filename, ifstream & file);
+bool openFileOut(string filename, ofstream & file);
+void prepareFilePath(string & path);
+void fileToVec(vector<Instruction>& instructions, ifstream & file);
+void clrMem(Memory & memory);
 int main()
 {
+	
+	//////////////////////////////////////////////////////////////////////////
+	//Init main var
+	//////////////////////////////////////////////////////////////////////////
+	Memory memory;
+	clrMem(memory); //Clear on init
 	int menu = 0;
-	while (1) //Infinite loop for program
+
+	
+	
+	while (1) //Infinite loop for main program
 	{
 		menu = 0;
 		mainMenuDisplay();
@@ -36,17 +64,28 @@ int main()
 
 		case 1: //VM
 		{
-
 			//Get file path
-
+			cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+			string path;
+			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			getline(cin,path);
+			prepareFilePath(path);
 			//Read input file
-
+			vector <Instruction> instructions; //Storage for converted instructions read from input file
+			ifstream input_file;
+			if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
+			{
+				cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
+				system("pause");
+				break;
+			}
+			fileToVec(instructions, input_file);
 
 			//Make program
 
-			//End or next file
-
-			break;
+			clrMem(memory);
+			break; //End
 		}
 
 		case 2: //Editor
@@ -54,7 +93,7 @@ int main()
 			break;
 		}
 
-		case 3://Debugger
+		case 3://Debugger, work step by step
 		{
 			break;
 		}
@@ -86,3 +125,60 @@ void mainMenuDisplay(void)
 	cout << "3. Praca krokowa" << endl;
 	cout << "0. Wyjscie z programu" << endl;
 }
+
+Instruction lineToInstruction(uint16_t line) //Littlendian?!?!? THINK NEEDED ALSO
+{
+	Instruction temp;
+	temp.Op = line & 0b1111;
+	temp.r1 = (line & 0b1111110000) >> 4;
+	temp.r2 = (line & 0b1111110000000000) >> 10;
+	return Instruction();
+}
+
+bool openFileIn(string filename, ifstream &file)
+{
+	file.open(filename.c_str(), ios::binary);
+	return file.good();
+}
+
+bool openFileOut(string filename, ofstream &file)//UT
+{
+	file.open(filename.c_str(), ios::binary);
+	return file.good();
+}
+
+uint16_t readNextValue(ifstream &file)//UT
+{
+	uint16_t temp;
+	file.read((char *)& temp, sizeof temp);
+	return temp;
+}
+
+void removeCharFromString(string &str, char charToRemove)
+{
+	str.erase(remove(str.begin(), str.end(), charToRemove), str.end());
+}
+
+void prepareFilePath(string &path)
+{
+	removeCharFromString(path, '"');
+}
+
+void fileToVec(vector <Instruction> &instructions, ifstream &file)
+{
+	instructions.push_back(lineToInstruction(readNextValue(file)));
+}
+
+void compile(Memory &memory, vector <Instruction> &instructions)//adding a flag for seq work?line after enter
+{
+	system("cls");//Clean screen for better effect
+
+}
+
+void clrMem(Memory &memory)
+{
+	memory.flag_register = 0;
+	memory.ins_counter = 0;
+	for (int i = 0; i < 64; i++) memory.reg[i] = 0; //Set all registers to 0
+}
+
