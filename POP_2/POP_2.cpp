@@ -2,6 +2,7 @@
 //  [12/31/2016 Janek]
 //  WARNING Number of jumps and constants is limited to 64 (6bits)!!!!!!!!!!!!!!!!!
 //	Simple VM
+// TODO: Close files!
 //////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h" //Header files
@@ -17,6 +18,9 @@
 #define KIN 8 //Keyboard INput
 #define SOU 9 //Screen Output
 #define END 10 //End
+
+#define PAUSE system("pause")
+#define CLS system("cls")
 
 struct Instruction //This struct help us when for example we need to convert line to instruction
 {
@@ -48,6 +52,7 @@ void prepareFilePath(string & path);
 void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memory);
 int compile(Memory & memory, vector<Instruction>& instructions);
 void clrMem(Memory &memory);
+int compileWithSteps(Memory & memory, vector<Instruction>& instructions);
 int main()
 {
 	
@@ -67,7 +72,7 @@ int main()
 		if (cin.fail())
 		{
 			cout << "podales zly znak sproboj ponownie" << endl;
-			system("pause");
+			PAUSE;
 			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
 			cin.ignore(numeric_limits<streamsize>::max(), '\n');
 			continue;
@@ -97,7 +102,7 @@ int main()
 			if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
 			{
 				cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
-				system("pause");
+				PAUSE;
 				break;
 			}
 			fileToVec(instructions, input_file, memory);
@@ -107,7 +112,7 @@ int main()
 
 			//End
 			clrMem(memory);
-			system("cls");
+			CLS;
 			break; 
 		}
 
@@ -118,6 +123,32 @@ int main()
 
 		case 3://Debugger, work step by step
 		{
+			clrMem(memory); //Clear on init
+			cout << "Tryb pracy krokowej\n";
+			//Get file path
+			cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+			string path;
+			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			getline(cin, path);
+			prepareFilePath(path);
+			//Read input file
+			vector <Instruction> instructions; //Storage for converted instructions read from input file
+			ifstream input_file;
+			if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
+			{
+				cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
+				PAUSE;
+				break;
+			}
+			fileToVec(instructions, input_file, memory);
+
+			//Make program
+			compileWithSteps(memory, instructions);
+
+			//End
+			clrMem(memory);
+			CLS;
 			break;
 		}
 
@@ -129,7 +160,7 @@ int main()
 		default:
 		{
 			cout << "Podales zly numer instrukcji";
-			system("pause");
+			PAUSE;
 			break;
 		}
 
@@ -141,7 +172,7 @@ int main()
 
 void mainMenuDisplay(void)
 {
-	system("cls");
+	CLS;
 	cout << "Wybierz odpowiednia opcje wpisuj¹c jej numer oraz wcisnij enter<<"<<endl;
 	cout << "1. Maszyna wirtualna" << endl;
 	cout << "2. Edytor kodu" << endl;
@@ -170,7 +201,7 @@ bool openFileOut(string filename, ofstream &file)//UT
 	return file.good();
 }
 
-uint16_t readNextValue(ifstream &file)//UT
+uint16_t readNextValue(ifstream &file)
 {
 	uint16_t temp;
 	file.read((char *)& temp, sizeof temp);
@@ -219,11 +250,12 @@ void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memor
 			memory.jumpCounter++;
 		}
 	}
+	file.close();//After use 
 }
 
 int compile(Memory &memory, vector <Instruction> &instructions)//adding a flag for seq work?line after enter
 {
-	system("cls");//Clean screen for better effect
+	CLS;//Clean screen for better effect
 	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
 	{
 		switch (instructions[memory.insCounter].Op)
@@ -283,10 +315,15 @@ int compile(Memory &memory, vector <Instruction> &instructions)//adding a flag f
 			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
-		case JMP://TODO: Check if is it possible to do jump ex insCounter = 3, steps = -6 -> error
+		case JMP:
 		{
 			int conditon = instructions[memory.insCounter].r1;
 			int steps = memory.jumpMem[instructions[memory.insCounter].r2];
+			if (memory.insCounter + steps < 0)
+			{
+				cout << "Blad operacja skoku probowala odwolac sie do lini o numerze mniejszym od zera";
+				return 1;
+			}
 			switch (conditon)
 			{
 			case 0: //always
@@ -391,7 +428,7 @@ int compile(Memory &memory, vector <Instruction> &instructions)//adding a flag f
 		memory.insCounter++; //Next line
 	} 
 	cout << "Koniec programu" << endl;
-	system("pause");
+	PAUSE;
 	return 0;//Everything goes right :)
 
 }
@@ -407,3 +444,219 @@ void clrMem(Memory &memory)
 	vector<int>().swap(memory.jumpMem);
 }
 
+int compileWithSteps(Memory &memory, vector <Instruction> &instructions)//adding a flag for seq work?line after enter
+{
+	CLS;//Clean screen for better effect
+	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
+	{
+		switch (instructions[memory.insCounter].Op)
+		{
+		case ADD:
+		{
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] + memory.reg[instructions[memory.insCounter].r2];
+			break;
+		}
+		case SUB:
+		{
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] - memory.reg[instructions[memory.insCounter].r2];
+			break;
+		}
+		case MUL:
+		{
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] * memory.reg[instructions[memory.insCounter].r2];
+			break;
+		}
+		case DIV:
+		{
+			if (memory.reg[instructions[memory.insCounter].r2] == 0)
+			{
+				cout << "Program probowal podzielic przez 0\n";
+				return 1;
+			}
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] / memory.reg[instructions[memory.insCounter].r2];
+			memory.reg[instructions[memory.insCounter].r2] = memory.reg[instructions[memory.insCounter].r1] * memory.reg[instructions[memory.insCounter].r2];
+			break;
+		}
+		case COM:
+		{
+			int com = 0;
+			com = memory.reg[instructions[memory.insCounter].r1] - memory.reg[instructions[memory.insCounter].r2];
+			if (com == 0)
+			{
+				memory.flagRegister = 1; //Z
+			}
+			else
+			{
+				if (com > 0)
+				{
+					memory.flagRegister = 2; //D
+				}
+				else
+				{
+					memory.flagRegister = 4; //U
+				}
+
+
+			}
+			break;
+
+		}
+		case CPY:
+		{
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r2];
+			break;
+		}
+		case JMP:
+		{
+			int conditon = instructions[memory.insCounter].r1;
+			int steps = memory.jumpMem[instructions[memory.insCounter].r2];
+			if (memory.insCounter + steps < 0)
+			{
+				cout << "Blad operacja skoku probowala odwolac sie do lini o numerze mniejszym od zera";
+				return 1;
+			}
+			switch (conditon)
+			{
+			case 0: //always
+			{
+				memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				break;
+			}
+			case 1://Z is set
+			{
+				if (memory.flagRegister == 1)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 2:
+			{
+				if (memory.flagRegister != 1)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 3:
+			{
+				if (memory.flagRegister == 2)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 4:
+			{
+				if (memory.flagRegister == 4)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 5:
+			{
+				if ((memory.flagRegister == 4) || (memory.flagRegister == 1))
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 6:
+			{
+				if ((memory.flagRegister == 2) || (memory.flagRegister == 1))
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			default:
+			{
+				cout << "B³¹d wykonywania programu w lini " << memory.insCounter << "Nieobslugiwany warunek skoku";
+				return 1;
+			}
+			}
+			break;
+		}
+		case REA:
+		{
+			memory.reg[instructions[memory.insCounter].r1] = memory.constMem[instructions[memory.insCounter].r2];
+			break;
+		}
+		case KIN:
+		{
+			int temp;
+			cout << "podaj liczbe ";
+			cin >> temp;
+			while (cin.fail()) //When isn't number go in to loop, exit on only digits input
+			{
+				cout << "Podano znaki nie bedace liczbami. Sproboj ponownie" << endl;
+
+				cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				cin >> temp; //try next input
+			}
+			memory.reg[instructions[memory.insCounter].r1] = temp;
+			break;
+		}
+		case SOU:
+		{
+			cout << endl << memory.reg[instructions[memory.insCounter].r1];
+			break;
+		}
+		case END:
+		{
+			cout << "Program siê spierdoli³ nigdy nie powinien tu wejœæ";
+			break;
+		}
+		default:
+		{
+			cout << "Uzyto nieobslugiwanej instrukcji";
+			return 1;//Goes out from loop
+		}
+
+		}
+		memory.insCounter++; //Next line
+		//////////////////////////////////////////////////////////////////////////
+		//Debug info part
+		//////////////////////////////////////////////////////////////////////////
+		cout << endl;
+		cout << "Linia: " << memory.insCounter << endl;
+		cout << "Flaga: ";
+		switch (memory.flagRegister)
+		{
+
+		case 1:
+		{
+			cout << "Z" << endl;
+			break;
+		}
+		case 2:
+		{
+			cout << "D" << endl;
+			break;
+		}
+		case 4:
+		{
+			cout << "U" << endl;
+			break;
+		}
+
+		}
+		cout << "Uzywane rejestry: ";
+		for (int i = 0; i < 64; i++)
+		{
+			if (memory.reg[i] != 0)
+			{
+				cout << "R" << i << " = " << memory.reg[i];
+				if (i % 5 == 0) cout << endl;
+			}
+		}
+		cout << endl;
+		PAUSE;
+	}
+	cout << "Koniec programu" << endl;
+	PAUSE;
+	return 0;//Everything goes right :)
+
+}
