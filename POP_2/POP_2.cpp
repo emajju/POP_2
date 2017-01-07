@@ -1,13 +1,13 @@
 // POP_2.cpp
 //  [12/31/2016 Janek]
-//
+//  WARNING Number of jumps and constants is limited to 64 (6bits)!!!!!!!!!!!!!!!!!
 //	Simple VM
 //////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h" //Header files
 
 #define ADD 0 //Add
-#define SUB 1 //Substract
+#define SUB 1 //Subtraction
 #define MUL 2 //Multiply
 #define DIV 3 //Divide
 #define COM 4 //Compare
@@ -28,12 +28,12 @@ struct Instruction //This struct help us when for example we need to convert lin
 struct Memory
 {
 	int reg[64];
-	int ins_counter;
-	int flag_register;
-	int const_counter;
-	int jump_counter;
-	std::vector<int> constant_mem; //Namespace is after
-	std::vector<int> jump_mem; //Namespace is after
+	int insCounter;
+	int flagRegister;
+	int constCounter;
+	int jumpCounter;
+	std::vector<int> constMem; //Namespace is after
+	std::vector<int> jumpMem; //Namespace is after
 };
 
 
@@ -46,14 +46,14 @@ bool openFileIn(string filename, ifstream & file);
 bool openFileOut(string filename, ofstream & file);
 void prepareFilePath(string & path);
 void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memory);
-void compile(Memory & memory, vector<Instruction>& instructions);
+int compile(Memory & memory, vector<Instruction>& instructions);
 void clrMem(Memory &memory);
 int main()
 {
 	
 	
 	//////////////////////////////////////////////////////////////////////////
-	//Init main var
+	//Init main vars
 	//////////////////////////////////////////////////////////////////////////
 	Memory memory;
 	clrMem(memory); //Clear on init
@@ -107,10 +107,11 @@ int main()
 
 			//End
 			clrMem(memory);
+			system("cls");
 			break; 
 		}
 
-		case 2: //Editor
+		case 2: //Editor, 2 conditions new file or edit existing file 
 		{
 			break;
 		}
@@ -206,61 +207,70 @@ void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memor
 		if (instructions[instructions.size() - 1].Op == REA)//If last read operation is REA then read 4 bytes to cons buff
 		{
 			//readIntConst(file);//Reading const from file
-			memory.constant_mem.push_back(readIntConst(file));
+			memory.constMem.push_back(readIntConst(file));
+			instructions[instructions.size() - 1].r2 = memory.constCounter;
+			memory.constCounter++;
 		}
 		if (instructions[instructions.size() - 1].Op == JMP)//Like upper
 		{
 			//readIntConst(file);//Reading const from file
-			memory.jump_mem.push_back(readIntConst(file));
+			memory.jumpMem.push_back(readIntConst(file));
+			instructions[instructions.size() - 1].r2 = memory.jumpCounter;
+			memory.jumpCounter++;
 		}
 	}
 }
 
-void compile(Memory &memory, vector <Instruction> &instructions)//adding a flag for seq work?line after enter
+int compile(Memory &memory, vector <Instruction> &instructions)//adding a flag for seq work?line after enter
 {
 	system("cls");//Clean screen for better effect
-	while (!(instructions[memory.ins_counter].Op == END))//While instruction isn't end do the program
+	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
 	{
-		switch (instructions[memory.ins_counter].Op)
+		switch (instructions[memory.insCounter].Op)
 		{
 		case ADD:
 		{
-			memory.reg[instructions[memory.ins_counter].r1] = memory.reg[instructions[memory.ins_counter].r1] + memory.reg[instructions[memory.ins_counter].r2];
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] + memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
 		case SUB:
 		{
-			memory.reg[instructions[memory.ins_counter].r1] = memory.reg[instructions[memory.ins_counter].r1] - memory.reg[instructions[memory.ins_counter].r2];
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] - memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
 		case MUL:
 		{
-			memory.reg[instructions[memory.ins_counter].r1] = memory.reg[instructions[memory.ins_counter].r1] * memory.reg[instructions[memory.ins_counter].r2];
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] * memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
 		case DIV:
 		{
-			memory.reg[instructions[memory.ins_counter].r1] = memory.reg[instructions[memory.ins_counter].r1] / memory.reg[instructions[memory.ins_counter].r2];
-			memory.reg[instructions[memory.ins_counter].r2] = memory.reg[instructions[memory.ins_counter].r1] * memory.reg[instructions[memory.ins_counter].r2];
+			if (memory.reg[instructions[memory.insCounter].r2] == 0)
+			{
+				cout << "Program probowal podzielic przez 0\n";
+				return 1;
+			}
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r1] / memory.reg[instructions[memory.insCounter].r2];
+			memory.reg[instructions[memory.insCounter].r2] = memory.reg[instructions[memory.insCounter].r1] * memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
 		case COM:
 		{
 			int com = 0;
-			com = memory.reg[instructions[memory.ins_counter].r1] - memory.reg[instructions[memory.ins_counter].r2];
+			com = memory.reg[instructions[memory.insCounter].r1] - memory.reg[instructions[memory.insCounter].r2];
 			if (com == 0)
 			{
-				memory.flag_register = 1; //Z
+				memory.flagRegister = 1; //Z
 			}
 			else
 			{
 				 if (com > 0)
 				{
-					memory.flag_register = 2; //D
+					memory.flagRegister = 2; //D
 				}
 				 else
 				{
-					memory.flag_register = 4; //U
+					memory.flagRegister = 4; //U
 				}
 				
 				
@@ -270,53 +280,130 @@ void compile(Memory &memory, vector <Instruction> &instructions)//adding a flag 
 		}
 		case CPY:
 		{
-			memory.reg[instructions[memory.ins_counter].r1] = memory.reg[instructions[memory.ins_counter].r2];
+			memory.reg[instructions[memory.insCounter].r1] = memory.reg[instructions[memory.insCounter].r2];
 			break;
 		}
-		case JMP:
+		case JMP://TODO: Check if is it possible to do jump ex insCounter = 3, steps = -6 -> error
 		{
-
+			int conditon = instructions[memory.insCounter].r1;
+			int steps = memory.jumpMem[instructions[memory.insCounter].r2];
+			switch (conditon)
+			{
+			case 0: //always
+			{
+				memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				break;
+			}
+			case 1://Z is set
+			{
+				if (memory.flagRegister==1)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 2:
+			{
+				if (memory.flagRegister!=1)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 3:
+			{
+				if (memory.flagRegister == 2)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 4:
+			{
+				if (memory.flagRegister == 4)
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 5:
+			{
+				if ((memory.flagRegister == 4)||(memory.flagRegister == 1))
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			case 6:
+			{
+				if ((memory.flagRegister == 2) || (memory.flagRegister == 1))
+				{
+					memory.insCounter += (steps - 1); // -1 is needed because on end of loop insCounter is getting one bigger
+				}
+				break;
+			}
+			default:
+			{
+				cout << "B³¹d wykonywania programu w lini " << memory.insCounter <<"Nieobslugiwany warunek skoku";
+				return 1;
+			}
+			}
+			break;
 		}
 		case REA:
 		{
-
+			memory.reg[instructions[memory.insCounter].r1] = memory.constMem[instructions[memory.insCounter].r2];
+			break;
 		}
 		case KIN:
 		{
 			int temp;
 			cout << "podaj liczbê ";
 			cin >> temp;
-			//TODO: Error service
-			memory.reg[instructions[memory.ins_counter].r1] = temp;
+			while (cin.fail()) //When isn't number go in to loop, exit on only digits input
+			{
+				cout << "Podano znaki nie bedace liczbami. Sproboj ponownie" << endl;
+				
+				cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+				cin.ignore(numeric_limits<streamsize>::max(), '\n');
+				cin >> temp; //try next input
+			}
+			memory.reg[instructions[memory.insCounter].r1] = temp;
 			break;
 		}
 		case SOU:
 		{
-			cout << endl << memory.reg[instructions[memory.ins_counter].r1];
+			cout << endl << memory.reg[instructions[memory.insCounter].r1];
 			break;
 		}
 		case END:
 		{
-			cout >> "Program siê spierdoli³ nigdy nie powinien tu wejœæ";
+			cout << "Program siê spierdoli³ nigdy nie powinien tu wejœæ";
+			break;
 		}
 		default:
 		{
 			cout << "Uzyto nieobslugiwanej instrukcji";
+			return 1;//Goes out from loop
 		}
 
 		}
-		memory.ins_counter++; //Next line
+		memory.insCounter++; //Next line
 	} 
+	cout << "Koniec programu" << endl;
+	system("pause");
+	return 0;//Everything goes right :)
 
 }
 
 void clrMem(Memory &memory)
 {
-	memory.flag_register = 0;
-	memory.ins_counter = 0;
-	memory.jump_counter = 0;
-	memory.const_counter = 0;
+	memory.flagRegister = 0;
+	memory.insCounter = 0;
+	memory.jumpCounter = 0;
+	memory.constCounter = 0;
 	for (int i = 0; i < 64; i++) memory.reg[i] = 0; //Set all registers to 0
-	//TODO: Clear 2 vectors 
+	vector<int>().swap(memory.constMem); //This construction deletes and frees all memory taken by vector, swap vector with empty vector;
+	vector<int>().swap(memory.jumpMem);
 }
 
