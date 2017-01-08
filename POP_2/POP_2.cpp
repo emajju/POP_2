@@ -59,11 +59,14 @@ void setFlags(Memory & memory, uint16_t value);
 
 void printMemDebug(Memory & memory);
 
-void printFileEditor(vector<Instruction>& instruction);
+void printFileEditor(vector<Instruction>& instruction, Memory memory);
 
+int interpretCommand(string command, vector<Instruction>& instructions, Memory memory);
+
+void saveVectorToFile(string fileName, vector<Instruction> instructions, Memory memory);
+//////////////////////////////////////////////////////////////////////////
 int main()
 {
-	
 	
 	//////////////////////////////////////////////////////////////////////////
 	//Init main vars
@@ -114,7 +117,7 @@ int main()
 				break;
 			}
 			fileToVec(instructions, input_file, memory);
-			
+			if (instructions.size() == 0) break;
 			//Make program
 			compile(memory, instructions, false);
 
@@ -153,10 +156,33 @@ int main()
 					break;
 				}
 				clrMem(memory);
+				string command;
 				fileToVec(editedFile, input_file, memory);
-				printFileEditor(editedFile);
-				cout << "Podaj komende: ";
-
+				input_file.close();
+				int status = 0;
+				while (1)
+				{
+					CLS;
+					printFileEditor(editedFile, memory);
+					cout << "Podaj komende: \n";
+					cin.clear();
+					cin.sync();
+					getline(cin, command);
+					//cin >> command;
+					status = interpretCommand(command, editedFile, memory);
+					if (status == 2) break;
+					if (status == 3)
+					{
+						//TODO save
+						saveVectorToFile(path, editedFile, memory);
+						break;
+					}
+					if (status == 0)
+					{
+						cout << "Blad w podanej komendzie, sprawdz dostepne komendy wpisujac 'help'" << endl;
+						PAUSE;
+					}
+				}
 				PAUSE;
 				break;
 			}
@@ -198,7 +224,7 @@ int main()
 				break;
 			}
 			fileToVec(instructions, input_file, memory);
-
+			if (instructions.size() == 0) break;
 			//Make program
 			compile(memory, instructions,true);
 
@@ -225,6 +251,7 @@ int main()
 	}
     return 0; //Return on end of application
 }
+//////////////////////////////////////////////////////////////////////////
 //Definition
 void mainMenuDisplay(void)
 {
@@ -312,6 +339,14 @@ void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memor
 			length -= 4;//int
 		}
 		length -= 2;//uint16
+		if(length<0)
+		{
+			cout << "Wczytywany plik jest uszkodzony";
+			PAUSE;
+			length = 0;
+			clrMem(memory);
+			vector<Instruction>().swap(instructions);
+		}
 	}
 	file.close();//After use 
 }
@@ -574,7 +609,7 @@ string translateInstruction(uint16_t instruction)
 	}
 }
 
-void printFileEditor(vector <Instruction> &instruction)
+void printFileEditor(vector <Instruction> &instruction, Memory memory)
 {
 	cout << setw(3) << "Nr." << "|" << setw(4) << "Inst" << "|"<<setw(5)<<"r1"<<"|"<<setw(5)<<"r2"<<"|"<<endl;
 	for (unsigned int i = 0; i < instruction.size(); i++) 
@@ -636,7 +671,7 @@ void displayHelp(void)
 	PAUSE;
 }
 
-int interpretCommand(string command, vector<Instruction> &instructions)
+int interpretCommand(string command, vector<Instruction> &instructions, Memory memory)
 {
 	if (command=="h"||command=="?"||command=="help")
 	{
@@ -675,21 +710,24 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				comm += command[i];
+				break;
 			}
 			case 1:
 			{
 				line += command[i];
-				
+				break;
 			}
 			}
 		}
 		if (comm != "del") return 0;
-		if (atoi(line.c_str()) < 0 || atoi(line.c_str()) > instructions.size()) return 0;//ERR
+		if (atoi(line.c_str()) < 0 || atoi(line.c_str()) > instructions.size()-1) return 0;//ERR
 		instructions.erase(instructions.begin()+atoi(line.c_str()));
+		return 1;
+
 	}
 	if (spaces>3)
 	{
-		cout << "Blad w podanej komendzie, sprawdz pomoc wpisujac 'help'" << endl;
+		
 		return 0;//Err
 	}
 	//String
@@ -711,6 +749,7 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				instruction += command[i];
+				break;
 			}
 			case 1:
 			{
@@ -720,18 +759,22 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				r1 += command[i];
+				break;
 			}
 			case 2:
 			{
 				
 				r2 += command[i];
+				break;
 			}
 			
 			}
 		}
+		
 		temp.r1 = atoi(r1.c_str());
 		temp.r2 = atoi(r2.c_str());
 		temp.Op = translateStringToInstruction(instruction);
+		if (temp.Op > 10) return 0;//error
 		instructions.push_back(temp);
 		return 1;//OK
 	}
@@ -751,6 +794,7 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				line += command[i];
+				break;
 			}
 			case 1:
 			{
@@ -760,6 +804,7 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				instruction += command[i];
+				break;
 			}
 			case 2:
 			{
@@ -769,11 +814,13 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 					continue;
 				}
 				r1 += command[i];
+				break;
 			}
 			case 3:
 			{
 
 				r2 += command[i];
+				break;
 			}
 
 			}
@@ -794,6 +841,44 @@ int interpretCommand(string command, vector<Instruction> &instructions)
 
 	}
 }
+
+void saveVectorToFile(string fileName, vector <Instruction> instructions, Memory memory)
+{
+	ofstream output;
+	if (!openFileOut(fileName, output)) //Open file and check error. If error go to hell
+	{
+		cout << "Nie udalo sie otworzyc pliku do zapisu\n";
+		PAUSE;
+	}
+	else
+	{
+		
+		for (int i = 0; i < instructions.size(); i++)
+		{
+			uint16_t temp;
+			temp = instructions[i].Op;
+			temp += (instructions[i].r1 << 4);
+			temp += (instructions[i].r1 << 10);
+			output.write((char*)& temp, sizeof temp);
+			if (instructions[i].Op == JMP || instructions[i].Op == REA)
+			{
+
+			}
+
+
+		}
+		output.close();
+		/*uint16_t temp;
+	file.read((char *)& temp, sizeof temp);
+	return temp;*/
+	/*Instruction temp;
+temp.Op = line & 0b1111;
+temp.r1 = (line & 0b1111110000) >> 4;
+temp.r2 = (line & 0b1111110000000000) >> 10;
+return temp;*/
+	}
+}
+
 
 
 
