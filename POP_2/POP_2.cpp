@@ -54,16 +54,13 @@ void prepareFilePath(string & path);
 void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memory);
 int compile(Memory & memory, vector<Instruction>& instructions, bool debug);
 void clrMem(Memory &memory);
-
 void setFlags(Memory & memory, uint16_t value);
-
 void printMemDebug(Memory & memory);
-
 void printFileEditor(vector<Instruction>& instruction, Memory memory);
-
-int interpretCommand(string command, vector<Instruction>& instructions, Memory memory);
-
+int interpretCommand(string command, vector<Instruction>& instructions, Memory &memory);
 void saveVectorToFile(string fileName, vector<Instruction> instructions, Memory memory);
+bool endExist(vector<Instruction> instructions);
+void react(Instruction &instruction, Memory &memory);
 //////////////////////////////////////////////////////////////////////////
 int main()
 {
@@ -118,6 +115,13 @@ int main()
 			}
 			fileToVec(instructions, input_file, memory);
 			if (instructions.size() == 0) break;
+			if (!endExist(instructions))
+			{
+				cout << "Plik ktory probojesz otworzyc nie posiada instrukcji zakonczenia" << endl;
+				cout << "Nie ma mo¿liwoœci wykonania takiego pliku" << endl;
+				PAUSE;
+				break;
+			}
 			//Make program
 			compile(memory, instructions, false);
 
@@ -164,7 +168,7 @@ int main()
 				{
 					CLS;
 					printFileEditor(editedFile, memory);
-					cout << "Podaj komende: \n";
+					cout << "Podaj komende: ";
 					cin.clear();
 					cin.sync();
 					getline(cin, command);
@@ -174,6 +178,13 @@ int main()
 					if (status == 3)
 					{
 						//TODO save
+						if (!endExist(editedFile))
+						{
+							cout << "Plik ktory probojesz zapisac nie posiada instrukcji zakonczenia" << endl;
+							cout << "Dodaj instrukcje aby zapisac plik" << endl;
+							PAUSE;
+							continue;
+						}
 						saveVectorToFile(path, editedFile, memory);
 						break;
 					}
@@ -256,7 +267,9 @@ int main()
 void mainMenuDisplay(void)
 {
 	CLS;
-	cout << "Wybierz odpowiednia opcje wpisuj¹c jej numer oraz wcisnij enter<<"<<endl;
+	cout << "Program maszyny wirtualnej, wykonuje pliki, edytuje.\nEdytor zawiera pomoc n.t. dostepnych instrukcji" << endl;
+	cout << "Autor Jan Mironkiewicz Nr. indeksu 165233" << endl;
+	cout << "Wybierz odpowiednia opcje wpisujac jej numer oraz wcisnij enter"<<endl;
 	cout << "1. Maszyna wirtualna" << endl;
 	cout << "2. Edytor kodu" << endl;
 	cout << "3. Praca krokowa" << endl;
@@ -351,11 +364,17 @@ void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memor
 	file.close();//After use 
 }
 
-int compile(Memory &memory, vector <Instruction> &instructions, bool debug)//adding a flag for seq work?line after enter
+int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 {
 	CLS;//Clean screen for better effect
+	
 	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
 	{
+		if (memory.insCounter > instructions.size())
+		{
+			cout << "Blad programu, proba odwolania do lini ktora nie istnieje";
+			return 1;
+		}
 		switch (instructions[memory.insCounter].Op)
 		{
 		case ADD:
@@ -483,7 +502,7 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)//add
 		case KIN:
 		{
 			int temp;
-			cout << "podaj liczbe ";
+			cout << endl << "podaj liczbe ";
 			cin >> temp;
 			while (cin.fail()) //When isn't number go in to loop, exit on only digits input
 			{
@@ -668,10 +687,39 @@ void displayHelp(void)
 	cout << "4. Usuniecie lini: 'del nr lini'" << endl;
 	cout << "5. Zapis i wyjscie: 'save'" << endl;
 	cout << "6. Wyjscie: 'exit'" << endl;
+	cout << endl << "Lista instrukcji: " << endl;
+	cout << "ADD R1 R2 - R1:= R1 + R2" << endl;
+	cout << "SUB R1 R2 - R1:= R1 - R2" << endl;
+	cout << "MUL R1 R2 - R1:= R1 * R2" << endl;
+	cout << "DIV R1 R2 - R1:= R1 / R2, R2:= R1 % R2" << endl;
+	cout << "COM R1 R2 - Porownaj R1 R2, wynik w rej flag" << endl;
+	cout << "CPY R1 R2 - R1:= R2" << endl;
+	cout << "JMP R1 R2 - Skok opis dalej" << endl;
+	cout << "REA R1 R2 - Wczytaj stala, opis dalej" << endl;
+	cout << "KIN R1 R2 - Wczytaj do R1 z klawiatury za R2 nalezy podac 0" << endl;
+	cout << "END R1 R2 - Koniec programu W R1 i R2 Nale¿y podaæ 0" << endl;
+	cout << endl << "Instrukcja REA: " << endl;
+	cout << "W R1 podac nalezy do ktorego rejestru zapiusujemy stala" << endl;
+	cout << "W R2 wpisujemy wartosc stalej" << endl;
+	cout << endl << "Instrukcja JMP: " << endl;
+	cout << "W R1 nale¿y podac informacje kiedy ma dojsc do skoku" << endl;
+	cout << "0 - zawsze, 1 - gdy flaga Z jest ustawiona, 2 - gdy flaga Z nie jest ustawiona" << endl;
+	cout << "3 - Gdy ustawiona jest flaga D, 4 - gdy ustawiona jest flaga U" << endl;
+	cout << "5 - Gdy ustawiona jest flaga D lub Z, 6 - gdy ustawiona jest flaga U lub Z" << endl;
+	cout << "W R2 podajemy iloœæ lini do przeskoczenia";
 	PAUSE;
 }
 
-int interpretCommand(string command, vector<Instruction> &instructions, Memory memory)
+bool checkIsDigit(string input)
+{
+	for (unsigned int i = 0; i < input.size(); i++)
+	{
+		if ((input[i] - '0') > 9)return false;//If any chars in string after 'conversion' is bigger than 9 means it isn't digit
+	}
+	return true;
+}
+
+int interpretCommand(string command, vector<Instruction> &instructions, Memory &memory)
 {
 	if (command=="h"||command=="?"||command=="help")
 	{
@@ -770,11 +818,12 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory m
 			
 			}
 		}
-		
+		if (!(checkIsDigit(r1) && checkIsDigit(r2))) return 0;//If r1 or r2 isn't digits go to error
 		temp.r1 = atoi(r1.c_str());
 		temp.r2 = atoi(r2.c_str());
 		temp.Op = translateStringToInstruction(instruction);
-		if (temp.Op > 10) return 0;//error
+		react(temp, memory);
+		if (temp.Op > 10) return 0;//error, wrong instruction
 		instructions.push_back(temp);
 		return 1;//OK
 	}
@@ -828,6 +877,7 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory m
 		temp.r1 = atoi(r1.c_str());
 		temp.r2 = atoi(r2.c_str());
 		temp.Op = translateStringToInstruction(instruction);
+		react(temp, memory);
 		if (temp.Op > 10) return 0;//error
 		//Adding inside
 		if (atoi(line.c_str()) < 0) return 0;
@@ -842,6 +892,11 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory m
 	}
 }
 
+void saveIntToFile(ofstream &output, int data)
+{
+	output.write((char*)& data, sizeof data);
+}
+
 void saveVectorToFile(string fileName, vector <Instruction> instructions, Memory memory)
 {
 	ofstream output;
@@ -853,32 +908,63 @@ void saveVectorToFile(string fileName, vector <Instruction> instructions, Memory
 	else
 	{
 		
-		for (int i = 0; i < instructions.size(); i++)
+		for (unsigned int i = 0; i < instructions.size(); i++)
 		{
-			uint16_t temp;
+			uint16_t temp = 0;
 			temp = instructions[i].Op;
 			temp += (instructions[i].r1 << 4);
-			temp += (instructions[i].r1 << 10);
-			output.write((char*)& temp, sizeof temp);
-			if (instructions[i].Op == JMP || instructions[i].Op == REA)
+			
+			if (instructions[i].Op == JMP || instructions[i].Op == REA)temp += (instructions[i].r2 << 10);//R2 need's to be saved only when isn't JMP or REA
+			output.write((char*)& temp, sizeof temp);//Save binary
+			if (instructions[i].Op == JMP || instructions[i].Op == REA)//Save value
 			{
+				switch (instructions[i].Op)
+				{
 
+				case JMP:
+				{
+					saveIntToFile(output,memory.jumpMem[instructions[i].r2]);
+					break;
+				}
+				case REA:
+				{
+					saveIntToFile(output, memory.constMem[instructions[i].r2]);
+					break;
+				}
+
+				}
+			
 			}
-
-
 		}
-		output.close();
-		/*uint16_t temp;
-	file.read((char *)& temp, sizeof temp);
-	return temp;*/
-	/*Instruction temp;
-temp.Op = line & 0b1111;
-temp.r1 = (line & 0b1111110000) >> 4;
-temp.r2 = (line & 0b1111110000000000) >> 10;
-return temp;*/
+		output.close(); //After use needed to close file;
+		
+	}
+}
+
+bool endExist(vector <Instruction> instructions)
+{
+	for (unsigned int i = 0; i< instructions.size(); i++)
+	{
+		if (instructions[i].Op == END) return true;
+	}
+	return false;
+}
+
+void react(Instruction &instruction, Memory &memory)
+{
+	if (instruction.Op==REA)
+	{
+		memory.constMem.push_back(instruction.r2);
+		instruction.r2 = memory.constCounter;
+		memory.constCounter++;
+	}
+	else if (instruction.Op==JMP)
+	{
+		memory.jumpMem.push_back(instruction.r2);
+		instruction.r2 = memory.jumpCounter;
+		memory.jumpCounter++;
 	}
 }
 
 
-
-
+//////////////////////////////////////////////////////////////////////////
