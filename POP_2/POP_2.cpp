@@ -61,6 +61,9 @@ int interpretCommand(string command, vector<Instruction>& instructions, Memory &
 void saveVectorToFile(string fileName, vector<Instruction> instructions, Memory memory);
 bool endExist(vector<Instruction> instructions);
 void react(Instruction &instruction, Memory &memory);
+void reactMinus(Instruction & instruction, Memory & memory, int value);
+void deleteMemory(Memory & memory, vector<Instruction>& instructions, int lineOfInstr);
+bool tryInput(vector<Instruction> instructions);
 //////////////////////////////////////////////////////////////////////////
 int main()
 {
@@ -115,9 +118,9 @@ int main()
 			}
 			fileToVec(instructions, input_file, memory);
 			if (instructions.size() == 0) break;
-			if (!endExist(instructions))
+			if (!tryInput(instructions))
 			{
-				cout << "Plik ktory probojesz otworzyc nie posiada instrukcji zakonczenia" << endl;
+				cout << "Plik ktory probojesz zawiera b³êdy(brak zakoñczenia lub odwoluje sie do rejestrow spoza dopuszczalnego zakresu)" << endl;
 				cout << "Nie ma mo¿liwoœci wykonania takiego pliku" << endl;
 				PAUSE;
 				break;
@@ -177,7 +180,7 @@ int main()
 					if (status == 2) break;
 					if (status == 3)
 					{
-						//TODO save
+						//save
 						if (!endExist(editedFile))
 						{
 							cout << "Plik ktory probojesz zapisac nie posiada instrukcji zakonczenia" << endl;
@@ -641,8 +644,15 @@ void printFileEditor(vector <Instruction> &instruction, Memory memory)
 			cout << setw(5) << instruction[i].r2 << "|" << endl;
 		}
 		else
-		{
-			cout << setw(5) << "0" << "|" << endl;
+		{//rewrite this code, in r2 display value 
+			if (instruction[i].Op == JMP)
+			{
+				cout << setw(5) << memory.jumpMem[instruction[i].r2] << "|" << endl;
+			}
+			else
+			{
+				cout << setw(5) << memory.constMem[instruction[i].r2] << "|" << endl;
+			}
 		}
 	}
 }
@@ -768,8 +778,16 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 			}
 		}
 		if (comm != "del") return 0;
-		if (atoi(line.c_str()) < 0 || atoi(line.c_str()) > instructions.size()-1) return 0;//ERR
-		instructions.erase(instructions.begin()+atoi(line.c_str()));
+		if (!checkIsDigit(line)) return 0;
+		int intLine;
+		if (line.empty())intLine = instructions.size() - 1;//if there is no line number were going to delete last
+		else intLine = atoi(line.c_str());//but when there is line number convert it from string to int
+
+		if ((intLine < 0) || (intLine > instructions.size() - 1))return 0;//This protect from trying to read something what don't exists
+
+		if (instructions[intLine].Op == REA || instructions[intLine].Op == JMP) deleteMemory(memory, instructions, intLine);//TODO
+
+		instructions.erase(instructions.begin()+intLine);//Do this delete
 		return 1;
 
 	}
@@ -819,11 +837,22 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 			}
 		}
 		if (!(checkIsDigit(r1) && checkIsDigit(r2))) return 0;//If r1 or r2 isn't digits go to error
+		
 		temp.r1 = atoi(r1.c_str());
-		temp.r2 = atoi(r2.c_str());
+		int r2I = atoi(r2.c_str());
+
 		temp.Op = translateStringToInstruction(instruction);
-		react(temp, memory);
 		if (temp.Op > 10) return 0;//error, wrong instruction
+
+		if (r2I < 0)
+		{
+			reactMinus(temp, memory, r2I);
+		}
+		else //non minus
+		{
+			temp.r2 = r2I;
+			react(temp, memory);
+		}
 		instructions.push_back(temp);
 		return 1;//OK
 	}
@@ -874,15 +903,27 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 
 			}
 		}
+
+		if (!(checkIsDigit(r1) && checkIsDigit(r2) && checkIsDigit(line))) return 0;//If r1 or r2 or line isn't digits go to error
 		temp.r1 = atoi(r1.c_str());
-		temp.r2 = atoi(r2.c_str());
+		int r2I = atoi(r2.c_str());
+
 		temp.Op = translateStringToInstruction(instruction);
-		react(temp, memory);
-		if (temp.Op > 10) return 0;//error
+		if (temp.Op > 10) return 0;//error, wrong instruction
 		//Adding inside
 		if (atoi(line.c_str()) < 0) return 0;
 		if (atoi(line.c_str()) > instructions.size()) return 0;
 
+		if (r2I < 0)
+		{
+			reactMinus(temp, memory, r2I);
+		}
+		else //non minus
+		{
+			temp.r2 = r2I;
+			react(temp, memory);
+		}
+		
 		instructions.insert(instructions.begin() + atoi(line.c_str()), temp);//This insert line in "middle" of vector
 		
 		return 1;//ok
@@ -914,7 +955,7 @@ void saveVectorToFile(string fileName, vector <Instruction> instructions, Memory
 			temp = instructions[i].Op;
 			temp += (instructions[i].r1 << 4);
 			
-			if (instructions[i].Op == JMP || instructions[i].Op == REA)temp += (instructions[i].r2 << 10);//R2 need's to be saved only when isn't JMP or REA
+			if (!(instructions[i].Op == JMP || instructions[i].Op == REA))temp += (instructions[i].r2 << 10);//R2 need's to be saved only when isn't JMP or REA
 			output.write((char*)& temp, sizeof temp);//Save binary
 			if (instructions[i].Op == JMP || instructions[i].Op == REA)//Save value
 			{
@@ -966,5 +1007,75 @@ void react(Instruction &instruction, Memory &memory)
 	}
 }
 
+void reactMinus(Instruction &instruction, Memory &memory, int value)
+{
+	if (instruction.Op == REA)
+	{
+		memory.constMem.push_back(value);
+		instruction.r2 = memory.constCounter;
+		memory.constCounter++;
+	}
+	else if (instruction.Op == JMP)
+	{
+		memory.jumpMem.push_back(value);
+		instruction.r2 = memory.jumpCounter;
+		memory.jumpCounter++;
+	}
+}
+
+void deleteMemory(Memory &memory, vector <Instruction> &instructions, int lineOfInstr)//Not sure if works
+{
+	Instruction temp;
+	temp = instructions[lineOfInstr];
+
+	if (temp.Op == REA)
+	{
+		memory.constMem.erase(memory.constMem.begin() + temp.r2); //R2 storing number of index in vector
+		if (!temp.r2==(memory.constCounter-1))
+		{
+			//rewrite others but only in upper lines
+			for (int i = lineOfInstr; i<instructions.size();i++)
+			{
+				if (instructions[i].Op == REA)
+				{
+					instructions[i].r2--; //All of them needs to be decreased by one
+				}
+			}
+
+		}
+		
+		memory.constCounter--;//One less const in memory
+	}
+	else if (temp.Op == JMP) //checked again, if error this part won't make more errors
+	{
+		memory.jumpMem.erase(memory.jumpMem.begin() + temp.r2); //R2 storing number of index in vector
+		if (!temp.r2 == (memory.jumpCounter-1))
+			//rewrite others but only in upper lines
+			for (int i = lineOfInstr; i < instructions.size(); i++)
+			{
+				if (instructions[i].Op == JMP)
+				{
+					instructions[i].r2--; //All of them needs to be decreased by one
+				}
+			}
+
+	
+
+	memory.jumpCounter--;//One less const in memory
+	}
+
+}
+
+bool tryInput(vector <Instruction> instructions)
+{
+	if (!endExist(instructions)) return false; //There is no end
+	for (int i =0; i<instructions.size(); i++)
+	{
+		if (!(instructions[i].r1 < 64 && instructions[i].r2 < 64)) return false;//Program uses register bigger than permissible
+	}
+
+	return true;
+
+}
 
 //////////////////////////////////////////////////////////////////////////
