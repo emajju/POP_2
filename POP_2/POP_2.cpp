@@ -554,7 +554,7 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 		if (debug) printMemDebug(memory);
 
 		summaryCounter++;
-		if (summaryCounter>1000000)
+		if (summaryCounter>1000)
 		{
 			
 			cout << "Program wykona³ siê ju¿ ponad 1000 razy, czy jest to zamierzony efekt?(t/n)" << endl;
