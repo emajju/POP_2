@@ -1,12 +1,21 @@
 // POP_2.cpp
 //  [12/31/2016 Janek]
-//  WARNING Number of jumps and constants is limited to 64 (6bits)!!!!!!!!!!!!!!!!!
+//  
 //	Simple VM
-// TODO: Close files!
-// VERY IMPORTANT TODO CHECKING DIGITS IN EDITOR(SENSITIVE FOR LETTER IN PLACE OF DIGIT)
+// 
 //////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h" //Header files
+#include <stdio.h>
+#include <tchar.h>
+#include <vector>
+#include <fstream>
+#include <stdlib.h>
+#include <iostream>
+#include <limits>
+#include <string>
+#include <algorithm>
+#include <iomanip>
+#include <time.h>
 
 #define ADD 0 //Add
 #define SUB 1 //Subtraction
@@ -19,6 +28,8 @@
 #define KIN 8 //Keyboard INput
 #define SOU 9 //Screen Output
 #define END 10 //End
+
+//#define PERFORMANCE
 
 #define PAUSE system("pause")
 #define CLS system("cls")
@@ -44,6 +55,14 @@ struct Memory
 
 
 using namespace std;// No more std:: with cout etc.
+
+bool VM(Memory & memory, bool debug);
+
+bool DBG(Memory & memory);
+
+bool EDIT(Memory & memory);
+
+bool NEW(Memory & memory);
 
 //Declaration
 void mainMenuDisplay(void);
@@ -98,39 +117,7 @@ int main()
 
 		case 1: //VM
 		{
-			clrMem(memory); //Clear on init
-
-			//Get file path
-			cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
-			string path;
-			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
-			cin.ignore(numeric_limits<streamsize>::max(), '\n');
-			getline(cin,path);
-			prepareFilePath(path);
-			//Read input file
-			vector <Instruction> instructions; //Storage for converted instructions read from input file
-			ifstream input_file;
-			if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
-			{
-				cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
-				PAUSE;
-				break;
-			}
-			fileToVec(instructions, input_file, memory);
-			if (instructions.size() == 0) break;
-			if (!tryInput(instructions))
-			{
-				cout << "Plik ktory probojesz zawiera b³êdy(brak zakoñczenia lub odwoluje sie do rejestrow spoza dopuszczalnego zakresu)" << endl;
-				cout << "Nie ma mo¿liwoœci wykonania takiego pliku" << endl;
-				PAUSE;
-				break;
-			}
-			//Make program
-			compile(memory, instructions, false);
-
-			//End
-			clrMem(memory);
-			CLS;
+			VM(memory, false);
 			break; 
 		}
 
@@ -146,69 +133,12 @@ int main()
 			{
 			case 1:
 			{
-
-				//Get file path
-				cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
-				string path;
-				cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
-				cin.ignore(numeric_limits<streamsize>::max(), '\n');
-				getline(cin, path);
-				prepareFilePath(path);
-				vector <Instruction> editedFile;
-				ifstream input_file;
-				if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
-				{
-					cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
-					PAUSE;
-					break;
-				}
-				clrMem(memory);
-				string command;
-				fileToVec(editedFile, input_file, memory);
-				input_file.close();
-				int status = 0;
-				while (1)
-				{
-					CLS;
-					printFileEditor(editedFile, memory);
-					cout << "Podaj komende: ";
-					cin.clear();
-					cin.sync();
-					getline(cin, command);
-					//cin >> command;
-					status = interpretCommand(command, editedFile, memory);
-					if (status == 2) break;
-					if (status == 3)
-					{
-						//save
-						if (!endExist(editedFile))
-						{
-							cout << "Plik ktory probojesz zapisac nie posiada instrukcji zakonczenia" << endl;
-							cout << "Dodaj instrukcje aby zapisac plik" << endl;
-							PAUSE;
-							continue;
-						}
-						saveVectorToFile(path, editedFile, memory);
-						break;
-					}
-					if (status == 0)
-					{
-						cout << "Blad w podanej komendzie, sprawdz dostepne komendy wpisujac 'help'" << endl;
-						PAUSE;
-					}
-				}
-				PAUSE;
+				EDIT(memory);
 				break;
 			}
 			case 2:
 			{
-				cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
-				cout << "Podaj nazwê pliku do utworzenia\n";
-				string name;
-				cin >> name;
-				vector <Instruction> createdFile;
-				
-
+				NEW(memory);
 				break;
 			}
 			case 0:
@@ -219,32 +149,7 @@ int main()
 
 		case 3://Debugger, work step by step
 		{
-			clrMem(memory); //Clear on init
-			cout << "Tryb pracy krokowej\n";
-			//Get file path
-			cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
-			string path;
-			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
-			cin.ignore(numeric_limits<streamsize>::max(), '\n');
-			getline(cin, path);
-			prepareFilePath(path);
-			//Read input file
-			vector <Instruction> instructions; //Storage for converted instructions read from input file
-			ifstream input_file;
-			if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
-			{
-				cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
-				PAUSE;
-				break;
-			}
-			fileToVec(instructions, input_file, memory);
-			if (instructions.size() == 0) break;
-			//Make program
-			compile(memory, instructions,true);
-
-			//End
-			clrMem(memory);
-			CLS;
+			DBG(memory);
 			break;
 		}
 
@@ -260,13 +165,127 @@ int main()
 			break;
 		}
 
-
 		}
 	}
     return 0; //Return on end of application
 }
 //////////////////////////////////////////////////////////////////////////
 //Definition
+
+bool VM(Memory &memory, bool debug)
+{
+	clrMem(memory); //Clear on init
+
+					//Get file path
+	cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+	string path;
+	cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
+	getline(cin, path);
+	prepareFilePath(path);
+	//Read input file
+	vector <Instruction> instructions; //Storage for converted instructions read from input file
+	ifstream input_file;
+	if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
+	{
+		cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
+		PAUSE;
+		return false;
+	}
+	fileToVec(instructions, input_file, memory);
+	if (instructions.size() == 0) return false;
+	if (!tryInput(instructions))
+	{
+		cout << "Plik ktory probojesz zawiera b³êdy(brak zakoñczenia lub odwoluje sie do rejestrow spoza dopuszczalnego zakresu)" << endl;
+		cout << "Nie ma mo¿liwoœci wykonania takiego pliku" << endl;
+		PAUSE;
+		return false;
+	}
+	//Make program
+	compile(memory, instructions, debug);
+
+	//End
+	clrMem(memory);
+	CLS;
+	return false;
+}
+bool DBG(Memory &memory)
+{
+	cout << "Tryb pracy krokowej\n";
+	VM(memory, true);
+	return false;
+}
+bool fileWorks(vector <Instruction> &editedFile, Memory &memory, string path)
+{
+	string command;
+	int status = 0;
+	while (1)
+	{
+		CLS;
+		printFileEditor(editedFile, memory);
+		cout << "Podaj komende: ";
+		cin.clear();
+		cin.sync();
+		getline(cin, command);
+		//cin >> command;
+		status = interpretCommand(command, editedFile, memory);
+		if (status == 2) return false;
+		if (status == 3)
+		{
+			//save
+			if (!endExist(editedFile))
+			{
+				cout << "Plik ktory probojesz zapisac nie posiada instrukcji zakonczenia" << endl;
+				cout << "Dodaj instrukcje aby zapisac plik" << endl;
+				PAUSE;
+				continue;
+			}
+			saveVectorToFile(path, editedFile, memory);
+			break;
+		}
+		if (status == 0)
+		{
+			cout << "Blad w podanej komendzie, sprawdz dostepne komendy wpisujac 'help'" << endl;
+			PAUSE;
+		}
+	}
+	PAUSE;
+	return false;
+}
+bool EDIT(Memory &memory)
+{
+	//Get file path
+	cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+	string path;
+	cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
+	getline(cin, path);
+	prepareFilePath(path);
+	vector <Instruction> editedFile;
+	ifstream input_file;
+	if (!openFileIn(path, input_file)) //Open file and check error. If error go to hell
+	{
+		cout << "Nie udalo sie otworzyc pliku z lokalizacji\n" << path;
+		PAUSE;
+		return false;
+	}
+	clrMem(memory);
+	fileToVec(editedFile, input_file, memory);
+	input_file.close();
+	fileWorks(editedFile, memory, path);
+	return false;
+}
+bool NEW(Memory &memory)
+{
+	cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
+	cout << "Podaj nazwê pliku do utworzenia\n";
+	string name;
+	cin >> name;
+	vector <Instruction> createdFile;
+	fileWorks(createdFile, memory, name+".bin");
+	return false;
+}
+
 void mainMenuDisplay(void)
 {
 	CLS;
@@ -370,14 +389,10 @@ void fileToVec(vector <Instruction> &instructions, ifstream &file, Memory &memor
 int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 {
 	CLS;//Clean screen for better effect
-	
+	int summaryCounter = 0;
+	clock_t beg = clock();
 	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
 	{
-		if (memory.insCounter > instructions.size())
-		{
-			cout << "Blad programu, proba odwolania do lini ktora nie istnieje";
-			return 1;
-		}
 		switch (instructions[memory.insCounter].Op)
 		{
 		case ADD:
@@ -537,6 +552,55 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 		}
 		memory.insCounter++; //Next line
 		if (debug) printMemDebug(memory);
+
+		summaryCounter++;
+		if (summaryCounter>1000000)
+		{
+			
+			cout << "Program wykona³ siê ju¿ ponad 1000 razy, czy jest to zamierzony efekt?(t/n)" << endl;
+#ifdef PERFORMANCE
+			clock_t end = clock();
+			static double tmp_sec = 0;
+			double elapsed_secs = (double(end - beg)/ CLOCKS_PER_SEC);
+			
+			cout << "i zajelo to " << elapsed_secs - tmp_sec <<"sec"<< "dla " << CLOCKS_PER_SEC <<endl;
+			tmp_sec = elapsed_secs;
+#endif 
+
+			
+			string ans;
+			cin >> ans;
+			if (ans == "t")
+			{
+				summaryCounter = 0;
+				
+				continue;
+			}
+			else if (ans == "n") break;
+			else {
+				while (1)
+				{
+					cout << "podano zla odpowiedz, odpowiedz t (tak) lub n (nie)" << endl;
+					cin >> ans;
+					if (ans == "t")
+					{
+						summaryCounter = 0;
+						break;
+					}
+					else if (ans == "n")
+					{
+						memory.insCounter = -1;//This makes error on first line check
+						break;
+					}
+				}
+			}
+		}
+		if ((memory.insCounter > instructions.size()) || (memory.insCounter < 0))
+		{
+			cout << "Blad programu, proba odwolania do lini ktora nie istnieje";
+			PAUSE;
+			return 1;
+		}
 	} 
 	cout << "Koniec programu" << endl;
 	PAUSE;
@@ -747,7 +811,7 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 	// Instruction r1 r2 if it will be a new line
 	// line number instruction r1 r2 insert before line number
 	// Other goes to error
-	// TODO DELETE LINE NUMBER X
+	// 
 	//////////////////////////////////////////////////////////////////////////
 	int spaces = countSpaces(command);
 	
@@ -785,7 +849,7 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 
 		if ((intLine < 0) || (intLine > instructions.size() - 1))return 0;//This protect from trying to read something what don't exists
 
-		if (instructions[intLine].Op == REA || instructions[intLine].Op == JMP) deleteMemory(memory, instructions, intLine);//TODO
+		if (instructions[intLine].Op == REA || instructions[intLine].Op == JMP) deleteMemory(memory, instructions, intLine);
 
 		instructions.erase(instructions.begin()+intLine);//Do this delete
 		return 1;
@@ -1071,7 +1135,10 @@ bool tryInput(vector <Instruction> instructions)
 	if (!endExist(instructions)) return false; //There is no end
 	for (int i =0; i<instructions.size(); i++)
 	{
-		if (!(instructions[i].r1 < 64 && instructions[i].r2 < 64)) return false;//Program uses register bigger than permissible
+		if (!(instructions[i].Op == JMP || instructions[i].Op == REA))//When its not jump or read try values
+		{
+			if (!(instructions[i].r1 < 64 && instructions[i].r2 < 64)) return false;//Program uses register bigger than permissible
+		}
 	}
 
 	return true;
