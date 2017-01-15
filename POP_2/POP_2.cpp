@@ -1,5 +1,6 @@
+//POP 2017-01-23 projekt 2 Mironkiewicz Jan EIT 3 165233 Microsoft Visual Studio Community 2015r
 // POP_2.cpp
-//  [12/31/2016 Janek]
+// 
 //  
 //	Simple VM
 // 
@@ -29,7 +30,7 @@
 #define SOU 9 //Screen Output
 #define END 10 //End
 
-//#define PERFORMANCE
+//#define PERFORMANCE //uncomment for check speed, run file which have no end ex. jmp 0 -1 and end 0 0
 
 #define PAUSE system("pause")
 #define CLS system("cls")
@@ -41,7 +42,7 @@ struct Instruction //This struct help us when for example we need to convert lin
 	uint16_t Op;
 };
 
-struct Memory
+struct Memory //Whole mem in one set
 {
 	int reg[64];
 	int insCounter;
@@ -63,6 +64,8 @@ bool DBG(Memory & memory);
 bool EDIT(Memory & memory);
 
 bool NEW(Memory & memory);
+
+bool examples(Memory & memory);
 
 //Declaration
 void mainMenuDisplay(void);
@@ -126,8 +129,8 @@ int main()
 			CLS;
 			int menu2;
 			cout << "1. Edycja" << endl;
-			cout << "2. Utwórz nowy plik" << endl;
-			cout << "0. Wróæ do poprzedniego menu" << endl;
+			cout << "2. Utworz nowy plik" << endl;
+			cout << "0. Wroc do poprzedniego menu" << endl;
 			cin >> menu2;
 			switch (menu2)
 			{
@@ -152,7 +155,11 @@ int main()
 			DBG(memory);
 			break;
 		}
-
+		case 4:
+		{
+			examples(memory);
+			break;
+		}
 		case 0:
 		{
 			return 0;
@@ -177,7 +184,7 @@ bool VM(Memory &memory, bool debug)
 	clrMem(memory); //Clear on init
 
 					//Get file path
-	cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+	cout << "Przeciagnij plik .bin na okienko programu, nastepnie nacisnij enter\n";
 	string path;
 	cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -196,8 +203,8 @@ bool VM(Memory &memory, bool debug)
 	if (instructions.size() == 0) return false;
 	if (!tryInput(instructions))
 	{
-		cout << "Plik ktory probojesz zawiera b³êdy(brak zakoñczenia lub odwoluje sie do rejestrow spoza dopuszczalnego zakresu)" << endl;
-		cout << "Nie ma mo¿liwoœci wykonania takiego pliku" << endl;
+		cout << "Plik ktory probojesz zawiera bledy(brak zakonczenia lub odwoluje sie do rejestrow spoza dopuszczalnego zakresu)" << endl;
+		cout << "Nie ma mozliwosci wykonania takiego pliku" << endl;
 		PAUSE;
 		return false;
 	}
@@ -255,7 +262,7 @@ bool fileWorks(vector <Instruction> &editedFile, Memory &memory, string path)
 bool EDIT(Memory &memory)
 {
 	//Get file path
-	cout << "Przeciagnij plik .bin na okienko programu, nastêpnie nacisnij enter\n";
+	cout << "Przeciagnij plik .bin na okienko programu, nastepnie nacisnij enter\n";
 	string path;
 	cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -278,12 +285,103 @@ bool EDIT(Memory &memory)
 bool NEW(Memory &memory)
 {
 	cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
-	cout << "Podaj nazwê pliku do utworzenia\n";
+	cout << "Podaj nazwe pliku do utworzenia\n";
 	string name;
 	cin >> name;
 	vector <Instruction> createdFile;
 	fileWorks(createdFile, memory, name+".bin");
 	return false;
+}
+bool examples(Memory &memory)
+{
+	
+	int menu = 1;
+	while (1)
+	{
+		CLS;
+		cout << "W tej czesci programu mozemy wybrac jeden z przygotowanych przykladow. " << endl;
+		cout << "A nastepnie zapisac go pod podana przez nas nazwa" << endl << endl;
+		cout << "1. Potegowanie" << endl;
+		cout << "2. Silnia" << endl;
+		cout << "3. Delta z rownania kwadratowego" << endl;
+		cout << "0. Powrot" << endl;
+		cin >> menu;
+		if (cin.fail())
+		{
+			cout << "podales zly znak sproboj ponownie" << endl;
+			PAUSE;
+			cin.clear(); //It's needed to cleanup cin stream before continue otherwise its starts to infinite loop
+			cin.ignore(numeric_limits<streamsize>::max(), '\n');
+			continue;
+		}
+
+		switch (menu)
+		{
+		case 1:
+		{
+			///
+			vector<Instruction> temp;
+			interpretCommand("KIN 0 0", temp, memory);
+			interpretCommand("KIN 1 0", temp, memory);
+			interpretCommand("REA 2 1", temp, memory);
+			interpretCommand("CPY 3 0", temp, memory);
+			interpretCommand("SUB 1 2", temp, memory);
+			interpretCommand("MUL 0 3", temp, memory);
+			interpretCommand("SUB 1 2", temp, memory);
+			interpretCommand("COM 1 63", temp, memory);
+			interpretCommand("JMP 2 -3", temp, memory);
+			interpretCommand("SOU 0 0", temp, memory);
+			interpretCommand("END 0 0", temp, memory);
+			cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
+			cout << "Podaj nazwe pliku do utworzenia\n";
+			string name;
+			cin >> name;
+			saveVectorToFile(name+".bin", temp, memory);
+			break;
+		}
+		case 2:
+		{
+			vector<Instruction> temp;
+			interpretCommand("KIN 0 0", temp, memory);
+			interpretCommand("REA 1 1", temp, memory);
+			interpretCommand("CPY 2 1", temp, memory);
+			interpretCommand("MUL 2 0", temp, memory);
+			interpretCommand("SUB 0 1", temp, memory);
+			interpretCommand("JMP 2 -2", temp, memory);
+			interpretCommand("SOU 2 0", temp, memory);
+			interpretCommand("END 0 0", temp, memory);
+			cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
+			cout << "Podaj nazwe pliku do utworzenia\n";
+			string name;
+			cin >> name;
+			saveVectorToFile(name + ".bin", temp, memory);
+			break;
+		}
+		case 3:
+		{
+			vector<Instruction> temp;
+			interpretCommand("KIN 0 0", temp, memory);
+			interpretCommand("KIN 1 0", temp, memory);
+			interpretCommand("KIN 2 0", temp, memory);
+			interpretCommand("MUL 1 1", temp, memory);
+			interpretCommand("REA 3 4", temp, memory);
+			interpretCommand("MUL 3 0", temp, memory);
+			interpretCommand("MUL 3 2", temp, memory);
+			interpretCommand("SUB 1 3", temp, memory);
+			interpretCommand("SOU 1 0", temp, memory);
+			interpretCommand("END 0 0", temp, memory);
+			cout << "Plik zostanie utworzony w lokalizacji programu z rozszerzeniem .bin\n";
+			cout << "Podaj nazwe pliku do utworzenia\n";
+			string name;
+			cin >> name;
+			saveVectorToFile(name + ".bin", temp, memory);
+			break;
+		}
+		default:
+			return true;
+		}
+	}
+	return true;
 }
 
 void mainMenuDisplay(void)
@@ -295,7 +393,10 @@ void mainMenuDisplay(void)
 	cout << "1. Maszyna wirtualna" << endl;
 	cout << "2. Edytor kodu" << endl;
 	cout << "3. Praca krokowa" << endl;
+	cout << "4. Przykladowe programy" << endl;
 	cout << "0. Wyjscie z programu" << endl;
+	cout << "Podaj numer opcji: ";
+
 }
 
 Instruction lineToInstruction(uint16_t line) //Littlendian?!?!? THINK NEEDED ALSO
@@ -390,9 +491,15 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 {
 	CLS;//Clean screen for better effect
 	int summaryCounter = 0;
+	//clock_t end1 = 0;
+	bool helper = false;//Helps with error handling
+	
+#ifdef PERFORMANCE
 	clock_t beg = clock();
+#endif
 	while (!(instructions[memory.insCounter].Op == END))//While instruction isn't end do the program
 	{
+
 		switch (instructions[memory.insCounter].Op)
 		{
 		case ADD:
@@ -418,6 +525,7 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 			if (memory.reg[instructions[memory.insCounter].r2] == 0)
 			{
 				cout << "Program probowal podzielic przez 0\n";
+				PAUSE;
 				return 1;
 			}
 			uint16_t r1 = memory.reg[instructions[memory.insCounter].r1];
@@ -446,7 +554,8 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 			int steps = memory.jumpMem[instructions[memory.insCounter].r2];
 			if (memory.insCounter + steps < 0)
 			{
-				cout << "Blad operacja skoku probowala odwolac sie do lini o numerze mniejszym od zera";
+				cout << "Blad operacja skoku probowala odwolac sie do lini o numerze mniejszym od zera\n";
+				PAUSE;
 				return 1;
 			}
 			switch (conditon)
@@ -506,7 +615,7 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 			}
 			default:
 			{
-				cout << "B³¹d wykonywania programu w lini " << memory.insCounter <<"Nieobslugiwany warunek skoku";
+				cout << "Blad wykonywania programu w lini " << memory.insCounter <<"Nieobslugiwany warunek skoku";
 				return 1;
 			}
 			}
@@ -535,17 +644,19 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 		}
 		case SOU:
 		{
-			cout << endl << memory.reg[instructions[memory.insCounter].r1];
+			cout << endl << memory.reg[instructions[memory.insCounter].r1] << endl;
 			break;
 		}
 		case END:
 		{
-			cout << "Program siê spierdoli³ nigdy nie powinien tu wejœæ";
+			cout << "Ta czesc programu nigdy nie powinna sie wykonac";
+			PAUSE;
 			break;
 		}
 		default:
 		{
 			cout << "Uzyto nieobslugiwanej instrukcji";
+			PAUSE;
 			return 1;//Goes out from loop
 		}
 
@@ -557,14 +668,16 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 		if (summaryCounter>1000)
 		{
 			
-			cout << "Program wykona³ siê ju¿ ponad 1000 razy, czy jest to zamierzony efekt?(t/n)" << endl;
+			cout << "Program wykonal sie juz ponad 1000 instrukcji, czy jest to zamierzony efekt?(t/n)" << endl;
 #ifdef PERFORMANCE
+			
 			clock_t end = clock();
 			static double tmp_sec = 0;
 			double elapsed_secs = (double(end - beg)/ CLOCKS_PER_SEC);
 			
-			cout << "i zajelo to " << elapsed_secs - tmp_sec <<"sec"<< "dla " << CLOCKS_PER_SEC <<endl;
-			tmp_sec = elapsed_secs;
+			cout << "i zajelo to " << elapsed_secs - tmp_sec  <<"sec"<< "dla " <<endl;
+			tmp_sec = elapsed_secs - tmp_sec;
+			
 #endif 
 
 			
@@ -585,11 +698,13 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 					if (ans == "t")
 					{
 						summaryCounter = 0;
+					
 						break;
 					}
 					else if (ans == "n")
 					{
 						memory.insCounter = -1;//This makes error on first line check
+						helper = true;
 						break;
 					}
 				}
@@ -597,15 +712,17 @@ int compile(Memory &memory, vector <Instruction> &instructions, bool debug)
 		}
 		if ((memory.insCounter > instructions.size()) || (memory.insCounter < 0))
 		{
-			cout << "Blad programu, proba odwolania do lini ktora nie istnieje";
-			PAUSE;
+			if (!helper)
+			{
+				cout << "Blad programu, proba odwolania do lini ktora nie istnieje" << endl;
+				PAUSE;
+			}
 			return 1;
 		}
 	} 
 	cout << "Koniec programu" << endl;
 	PAUSE;
-	return 0;//Everything goes right :)
-
+	return 0;
 }
 
 void clrMem(Memory &memory)
@@ -771,16 +888,16 @@ void displayHelp(void)
 	cout << "JMP R1 R2 - Skok opis dalej" << endl;
 	cout << "REA R1 R2 - Wczytaj stala, opis dalej" << endl;
 	cout << "KIN R1 R2 - Wczytaj do R1 z klawiatury za R2 nalezy podac 0" << endl;
-	cout << "END R1 R2 - Koniec programu W R1 i R2 Nale¿y podaæ 0" << endl;
+	cout << "END R1 R2 - Koniec programu W R1 i R2 Nalezy podac 0" << endl;
 	cout << endl << "Instrukcja REA: " << endl;
 	cout << "W R1 podac nalezy do ktorego rejestru zapiusujemy stala" << endl;
 	cout << "W R2 wpisujemy wartosc stalej" << endl;
 	cout << endl << "Instrukcja JMP: " << endl;
-	cout << "W R1 nale¿y podac informacje kiedy ma dojsc do skoku" << endl;
+	cout << "W R1 nalezy podac informacje kiedy ma dojsc do skoku" << endl;
 	cout << "0 - zawsze, 1 - gdy flaga Z jest ustawiona, 2 - gdy flaga Z nie jest ustawiona" << endl;
 	cout << "3 - Gdy ustawiona jest flaga D, 4 - gdy ustawiona jest flaga U" << endl;
 	cout << "5 - Gdy ustawiona jest flaga D lub Z, 6 - gdy ustawiona jest flaga U lub Z" << endl;
-	cout << "W R2 podajemy iloœæ lini do przeskoczenia";
+	cout << "W R2 podajemy ilosc lini do przeskoczenia"<<endl;
 	PAUSE;
 }
 
@@ -847,7 +964,7 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 		if (line.empty())intLine = instructions.size() - 1;//if there is no line number were going to delete last
 		else intLine = atoi(line.c_str());//but when there is line number convert it from string to int
 
-		if ((intLine < 0) || (intLine > instructions.size() - 1))return 0;//This protect from trying to read something what don't exists
+		if ((intLine < 0) || (intLine > instructions.size() - 1))return 0;//This protect from trying to del something what don't exists
 
 		if (instructions[intLine].Op == REA || instructions[intLine].Op == JMP) deleteMemory(memory, instructions, intLine);
 
@@ -987,7 +1104,31 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 			temp.r2 = r2I;
 			react(temp, memory);
 		}
-		
+		//////////////////////////////////////////////////////////////////////////		
+		int index;
+		if (temp.Op == REA || temp.Op == JMP)
+		{
+			bool done = false;
+			for (int i = atoi( line.c_str()); i < instructions.size(); i++)
+			{
+				if (instructions[i].Op==temp.Op)
+				{
+
+					if (!done)//Once on first instruction match
+					{
+						index = instructions[i].r2;
+						done = true;
+					}
+					instructions[i].r2++;
+				}
+			}
+			if (done)
+			{
+				temp.r2 = index;
+			}
+			
+		}
+		//////////////////////////////////////////////////////////////////////////
 		instructions.insert(instructions.begin() + atoi(line.c_str()), temp);//This insert line in "middle" of vector
 		
 		return 1;//ok
