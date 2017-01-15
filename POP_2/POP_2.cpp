@@ -83,7 +83,9 @@ int interpretCommand(string command, vector<Instruction>& instructions, Memory &
 void saveVectorToFile(string fileName, vector<Instruction> instructions, Memory memory);
 bool endExist(vector<Instruction> instructions);
 void react(Instruction &instruction, Memory &memory);
-void reactMinus(Instruction & instruction, Memory & memory, int value);
+void react(Instruction & instruction, Memory & memory, int value);
+void reactInsert(Instruction & instruction, Memory & memory, vector<Instruction> &instructions, int line);
+void reactInsert(Instruction & instruction, Memory & memory, int value, vector<Instruction> &instructions, int line);
 void deleteMemory(Memory & memory, vector<Instruction>& instructions, int lineOfInstr);
 bool tryInput(vector<Instruction> instructions);
 //////////////////////////////////////////////////////////////////////////
@@ -226,8 +228,11 @@ bool fileWorks(vector <Instruction> &editedFile, Memory &memory, string path)
 {
 	string command;
 	int status = 0;
+	cin.clear();
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');//One error less
 	while (1)
 	{
+		
 		CLS;
 		printFileEditor(editedFile, memory);
 		cout << "Podaj komende: ";
@@ -1027,7 +1032,7 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 
 		if (r2I < 0)
 		{
-			reactMinus(temp, memory, r2I);
+			react(temp, memory, r2I);
 		}
 		else //non minus
 		{
@@ -1097,37 +1102,15 @@ int interpretCommand(string command, vector<Instruction> &instructions, Memory &
 
 		if (r2I < 0)
 		{
-			reactMinus(temp, memory, r2I);
+			reactInsert(temp, memory, r2I, instructions, atoi(line.c_str()));
 		}
 		else //non minus
 		{
 			temp.r2 = r2I;
-			react(temp, memory);
+			reactInsert(temp, memory, instructions, atoi(line.c_str()));
 		}
 		//////////////////////////////////////////////////////////////////////////		
-		int index;
-		if (temp.Op == REA || temp.Op == JMP)
-		{
-			bool done = false;
-			for (int i = atoi( line.c_str()); i < instructions.size(); i++)
-			{
-				if (instructions[i].Op==temp.Op)
-				{
-
-					if (!done)//Once on first instruction match
-					{
-						index = instructions[i].r2;
-						done = true;
-					}
-					instructions[i].r2++;
-				}
-			}
-			if (done)
-			{
-				temp.r2 = index;
-			}
-			
-		}
+		//?
 		//////////////////////////////////////////////////////////////////////////
 		instructions.insert(instructions.begin() + atoi(line.c_str()), temp);//This insert line in "middle" of vector
 		
@@ -1212,7 +1195,7 @@ void react(Instruction &instruction, Memory &memory)
 	}
 }
 
-void reactMinus(Instruction &instruction, Memory &memory, int value)
+void react(Instruction &instruction, Memory &memory, int value)//OVL
 {
 	if (instruction.Op == REA)
 	{
@@ -1228,6 +1211,97 @@ void reactMinus(Instruction &instruction, Memory &memory, int value)
 	}
 }
 
+void reactInsert(Instruction &instruction, Memory &memory, vector <Instruction> &instructions, int line)
+{
+	int index;
+	bool once = false;
+	//Scan for get index in rea or jmp vector
+	
+
+	if (instruction.Op == REA)
+	{
+		for (int i = line; i < instructions.size(); i++)//Starting from line look for first address of memo type
+		{
+			if (instructions[i].Op == REA)
+			{
+				if (!once)
+				{
+					index = instructions[i].r2;
+					once = true;
+				}
+				instructions[i].r2++;
+			}
+		}
+		memory.constMem.insert(memory.constMem.begin() + index, instruction.r2);
+		//memory.constMem.push_back(instruction.r2);
+		instruction.r2 = index;
+		memory.constCounter++;
+	}
+	else if (instruction.Op == JMP)
+	{
+		for (int i = line; i < instructions.size(); i++)//Starting from line look for first address of memo type
+		{
+			if (instructions[i].Op == JMP)
+			{
+				if (!once)
+				{
+					index = instructions[i].r2;
+					once = true;
+				}
+				instructions[i].r2++;
+			}
+		}
+		memory.jumpMem.insert(memory.jumpMem.begin() + index, instruction.r2);
+		//memory.jumpMem.push_back(instruction.r2);
+		instruction.r2 = index;
+		memory.jumpCounter++;
+	}
+}
+
+void reactInsert(Instruction &instruction, Memory &memory, int value, vector <Instruction> &instructions, int line)//OVL
+{
+	int index;
+	bool once = false;
+	if (instruction.Op == REA)
+	{
+		for (int i = line; i < instructions.size(); i++)//Starting from line look for first address of memo type
+		{
+			if (instructions[i].Op == REA)
+			{
+				if (!once)
+				{
+					index = instructions[i].r2;
+					once = true;
+				}
+				instructions[i].r2++;
+			}
+		}
+		memory.constMem.insert(memory.constMem.begin() + index, value);
+		//memory.constMem.push_back(instruction.r2);
+		instruction.r2 = index;
+		memory.constCounter++;
+	}
+	else if (instruction.Op == JMP)
+	{
+		for (int i = line; i < instructions.size(); i++)//Starting from line look for first address of memo type
+		{
+			if (instructions[i].Op == JMP)
+			{
+				if (!once)
+				{
+					index = instructions[i].r2;
+					once = true;
+				}
+				instructions[i].r2++;
+			}
+		}
+		memory.jumpMem.insert(memory.jumpMem.begin() + index, value);
+		//memory.jumpMem.push_back(instruction.r2);
+		instruction.r2 = index;
+		memory.jumpCounter++;
+	}
+}
+
 void deleteMemory(Memory &memory, vector <Instruction> &instructions, int lineOfInstr)//Not sure if works
 {
 	Instruction temp;
@@ -1236,7 +1310,7 @@ void deleteMemory(Memory &memory, vector <Instruction> &instructions, int lineOf
 	if (temp.Op == REA)
 	{
 		memory.constMem.erase(memory.constMem.begin() + temp.r2); //R2 storing number of index in vector
-		if (!temp.r2==(memory.constCounter-1))
+		if (!(temp.r2==memory.constCounter-1))
 		{
 			//rewrite others but only in upper lines
 			for (int i = lineOfInstr; i<instructions.size();i++)
@@ -1254,7 +1328,7 @@ void deleteMemory(Memory &memory, vector <Instruction> &instructions, int lineOf
 	else if (temp.Op == JMP) //checked again, if error this part won't make more errors
 	{
 		memory.jumpMem.erase(memory.jumpMem.begin() + temp.r2); //R2 storing number of index in vector
-		if (!temp.r2 == (memory.jumpCounter-1))
+		if (!(temp.r2 == memory.jumpCounter-1))
 			//rewrite others but only in upper lines
 			for (int i = lineOfInstr; i < instructions.size(); i++)
 			{
